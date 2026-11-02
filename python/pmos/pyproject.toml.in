@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pmos"
+version = "0.0.1"
+authors = [
+  { name="Sam Carroll", email="srcarroll314@gmail.com" },
+]
+description = "High level python based API for programming on MOS"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "mlir",
+    "numpy"
+]
+
+[tool.setuptools]
+packages = [
+    "pmos",
+    "pmos.pnes",
+    "mlir",
+    "mlir._mlir_libs",
+    "mlir._mlir_libs._mlir",
+    "mlir.dialects",
+    "mlir.extras",
+    "mlir.runtime"
+]
+
+[tool.setuptools.package-dir]
+pmos = "pmos"
+mlir = "mlir"
+
+[tool.setuptools.package-data]
+"pmos" = [
+    "**/*.py",    # Recursively include all Python files
+]
+"mlir" = [
+    "**/*.py",   # Recursively include all Python files
+    "**/*.0git", # Recursively include all 0git files
+    "**/*.so",   # Recursively include all .so files
+    "**/*.dylib"
+]
+
+[project.urls]
+Homepage = "https://github.com/srcarroll/llvm-mos-sdk"
+Issues = "https://github.com/srcarroll/llvm-mos-sdk/issues"

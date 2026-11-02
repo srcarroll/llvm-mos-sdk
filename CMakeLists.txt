@@ -86,3 +86,5 @@ add_subdirectory(mos-platform)
 if(NOT CMAKE_CROSSCOMPILING)
   add_subdirectory(test)
 endif()
+
+add_subdirectory(python/pmos)
