@@ -3,33 +3,26 @@ from typing import Literal, NamedTuple, Optional, Sequence
 from mlir import ir
 from mlir.dialects import anes, arith, scf, llvm
 
-import numpy as np
+from .._helpers import (
+    _check_or_get_i8_value,
+    _check_or_get_i16_value,
+)
 
 __all__ = [
-    "apu_set_status",
-    "apu_set_pulse_param",
+    "SpriteData",
+    "bank_spr",
+    "oam_clear",
+    "wait_nmi",
     "fill_pal_pattern",
     "fill_tiles_from_rle",
-    "get_global_meta_sprite",
-    "global_array",
     "global_meta_sprite",
-    "meta_sprite_type",
-    "meta_sprite_attr",
-    "ppu_on",
+    "get_global_meta_sprite",
     "ppu_off",
-    "ppu_bank_spr",
-    "ppu_oam_clear",
-    "ppu_wait_nmi",
+    "ppu_on",
     "set_background_palette",
-    "set_meta_sprite_at",
     "set_sprite_palette",
-    "InfiniteLoopOp",
-    "SpriteData",
+    "set_meta_sprite_at",
 ]
-
-
-def meta_sprite_type(num_rows: int, num_cols: int) -> ir.Type:
-    return ir.Type.parse(f"!anes.meta_sprite_handle<{num_rows}, {num_cols}>")
 
 
 class SpriteData(NamedTuple):
@@ -50,6 +43,10 @@ class SpriteData(NamedTuple):
     behind: bool = False
     flip_hz: bool = False
     flip_vr: bool = False
+
+
+def meta_sprite_type(num_rows: int, num_cols: int) -> ir.Type:
+    return ir.Type.parse(f"!anes.meta_sprite_handle<{num_rows}, {num_cols}>")
 
 
 def meta_sprite_attr(sprite_data: Sequence[Sequence[SpriteData]]) -> ir.Attribute:
@@ -76,162 +73,16 @@ def meta_sprite_attr(sprite_data: Sequence[Sequence[SpriteData]]) -> ir.Attribut
     )
 
 
-I8Type = ir.IntegerType.get_signless(8)
-
-
-class InfiniteLoopOp:
-    """Create an infinite loop in which to insert operations.
-
-    Infinite loop here is a `scf.while` (do-while) loop with an always true condition.
-    Users can insert operations in the "do" branch of the loop.  An iteration
-    count SSA value is created and can be accessed from the block argument
-    of the "do" block.
-
-    A context manager is implemented to set the insertion point to the start of
-    the "do" block when entering the context.  That way, any operation that
-    is invoked in the scope of the context will be inserted in the body of
-    the "do" branch. Upon exiting the context, the iteration variable is incremented
-    by 1, terminated with an `scf.yield`, and insertion point exited setting it
-    to after the `scf.while` operation.
-
-    """
-
-    def __init__(self):
-        init = arith.constant(I8Type, 0)
-        true_val = arith.constant(ir.IntegerType.get_signless(1), True)
-        self.while_op = scf.WhileOp([I8Type], [init])
-        self.while_op.before.blocks.append()
-        iteration = self.while_op.before.blocks[0].add_argument(
-            I8Type, ir.Location.unknown()
-        )
-        with ir.InsertionPoint(self.while_op.before.blocks[0]):
-            scf.condition(true_val, [iteration])
-        self.while_op.after.blocks.append()
-        iteration = self.while_op.after.blocks[0].add_argument(
-            I8Type, ir.Location.unknown()
-        )
-        self.while_op.iteration = iteration
-
-    def __enter__(self):
-        self.ip = ir.InsertionPoint(self.while_op.after.blocks[0])
-        self.ip.__enter__()
-        return self.while_op
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        one = arith.constant(I8Type, 1)
-        next_val = arith.addi(self.while_op.iteration, one)
-        scf.yield_([next_val])
-        return self.ip.__exit__(exc_type, exc_value, traceback)
-
-
-def _check_or_get_value_of_int_type(val: int | ir.Value, width: int) -> ir.Value:
-    if isinstance(val, int):
-        return arith.constant(ir.IntegerType.get_signless(width), val)
-    elif isinstance(val, ir.Value):
-        if val.type != ir.IntegerType.get_signless(width):
-            raise TypeError(f"expected `val` to be i{width} type")
-        return val
-    else:
-        raise TypeError("expected `val` to be `int` or `Value`")
-
-
-def _check_or_get_i1_value(val: int | ir.Value) -> ir.Value:
-    return _check_or_get_value_of_int_type(val, 1)
-
-
-def _check_or_get_i8_value(val: int | ir.Value) -> ir.Value:
-    return _check_or_get_value_of_int_type(val, 8)
-
-
-def _check_or_get_i16_value(val: int | ir.Value) -> ir.Value:
-    return _check_or_get_value_of_int_type(val, 16)
-
-
-###############################################################################
-#
-#  APU Ops
-#
-###############################################################################
-
-
-def apu_set_status(
-    *,
-    pulse0: bool = False,
-    pulse1: bool = False,
-    triangle: bool = False,
-    noise: bool = False,
-    dmc: bool = False,
-) -> None:
-    anes.apu_set_status(
-        pulse0=pulse0, pulse1=pulse1, triangle=triangle, noise=noise, dmc=dmc
-    )
-
-
-def apu_set_pulse_param(
-    *,
-    duty: int | ir.Value | None = None,
-    env_loop: bool | ir.Value | None = None,
-    const_volume: bool | ir.Value | None = None,
-    env_divider: int | ir.Value | None = None,
-    sweep_enable: bool | ir.Value | None = None,
-    sweep_period: int | ir.Value | None = None,
-    negate_shift: bool | ir.Value | None = None,
-    shift: int | ir.Value | None = None,
-    period: int | ir.Value | None = None,
-    length_counter: int | ir.Value | None = None,
-):
-    if duty is not None:
-        duty = _check_or_get_i8_value(duty)
-    if env_loop is not None:
-        env_loop = _check_or_get_i1_value(env_loop)
-    if const_volume is not None:
-        const_volume = _check_or_get_i1_value(const_volume)
-    if env_divider is not None:
-        env_divider = _check_or_get_i8_value(env_divider)
-    if sweep_enable is not None:
-        sweep_enable = _check_or_get_i1_value(sweep_enable)
-    if sweep_period is not None:
-        sweep_period = _check_or_get_i8_value(sweep_period)
-    if negate_shift is not None:
-        negate_shift = _check_or_get_i1_value(negate_shift)
-    if shift is not None:
-        shift = _check_or_get_i8_value(shift)
-    if period is not None:
-        period = _check_or_get_i16_value(period)
-    if length_counter is not None:
-        length_counter = _check_or_get_i8_value(length_counter)
-
-    return anes.apu_create_pulse_parameters(
-        duty=duty,
-        env_loop=env_loop,
-        const_volume=const_volume,
-        env_divider=env_divider,
-        sweep_enable=sweep_enable,
-        sweep_period=sweep_period,
-        negate_shift=negate_shift,
-        shift=shift,
-        period=period,
-        length_counter=length_counter,
-    )
-
-
-###############################################################################
-#
-#  PPU Ops
-#
-###############################################################################
-
-
-def ppu_bank_spr(bank: int | ir.Value) -> None:
+def bank_spr(bank: int | ir.Value) -> None:
     bank = _check_or_get_i8_value(bank)
     anes.ppu_bank_spr(bank=bank)
 
 
-def ppu_oam_clear():
+def oam_clear():
     anes.ppu_oam_clear()
 
 
-def ppu_wait_nmi():
+def wait_nmi():
     anes.ppu_wait_nmi()
 
 
@@ -289,37 +140,6 @@ def fill_tiles_from_rle(
 
     anes.fill_tiles_from_rle_at(
         source, x, y, ir.Attribute.parse(f"#anes.nametable_attr<{nametable}>")
-    )
-
-
-def global_array(
-    name: str, array: Sequence[int] | str, *, constant: bool | None = None
-):
-    """Create an global array of integers or characters (both 8-bit)
-
-    Args:
-        `name` (`str`): The symbol name of the global var.
-        `array` (`Sequence[int] | str`): The init value of the global.
-            Either an array of integers or a string.
-        `constant` (`bool | None`): Whether the array is constant.
-
-    """
-    if len(array) == 0:
-        value = None
-    else:
-        if isinstance(array[0], str):
-            value = ir.StringAttr.get(array)
-        elif isinstance(array[0], int):
-            value = ir.DenseElementsAttr.get(np.array(array, dtype=np.int8))
-        else:
-            raise ValueError("expected `array` to consist of `str` or `int` elements")
-    return llvm.mlir_global(
-        ir.Type.parse(f"!llvm.array<{len(array)} x i8>"),
-        name,
-        linkage=ir.Attribute.parse("#llvm.linkage<internal>"),
-        value=value,
-        alignment=1,
-        constant=True,
     )
 
 

@@ -5,21 +5,11 @@ from pmos import pnes
 
 i8_type = ir.IntegerType.get_signless(8)
 
-bank_spr = func.FuncOp(
-    "bank_spr", func.FunctionType.get([i8_type], []), visibility="private"
-)
-ppu_wait_nmi = func.FuncOp(
-    "ppu_wait_nmi", func.FunctionType.get([], []), visibility="private"
-)
-oam_clear = func.FuncOp(
-    "oam_clear", func.FunctionType.get([], []), visibility="private"
-)
-
-metasprite1 = pnes.global_meta_sprite(
+metasprite1 = pnes.ppu.global_meta_sprite(
     "metasprite1",
     [
-        [pnes.SpriteData(tile=0), pnes.SpriteData(tile=0, flip_hz=True)],
-        [pnes.SpriteData(tile=1), pnes.SpriteData(tile=1, flip_hz=True)],
+        [pnes.ppu.SpriteData(tile=0), pnes.ppu.SpriteData(tile=0, flip_hz=True)],
+        [pnes.ppu.SpriteData(tile=1), pnes.ppu.SpriteData(tile=1, flip_hz=True)],
     ],
 )
 
@@ -94,9 +84,9 @@ blocks = pnes.global_array(
 
 
 def main():
-    pnes.ppu_off()
+    pnes.ppu.ppu_off()
 
-    pnes.set_background_palette(
+    pnes.ppu.set_background_palette(
         15,
         # greys
         [0, 16, 48],
@@ -108,7 +98,7 @@ def main():
         [9, 41, 57],
     )
 
-    pnes.set_sprite_palette(
+    pnes.ppu.set_sprite_palette(
         15,
         # black, black yellow
         [15, 15, 40],
@@ -120,24 +110,34 @@ def main():
         [9, 41, 57],
     )
 
-    pnes.fill_tiles_from_rle(blocks, "a", 0, 0)
+    pnes.ppu.fill_tiles_from_rle(blocks, "a", 0, 0)
 
-    pnes.fill_pal_pattern([0, 0, 0, 0], 8, 0, 0)
-    pnes.fill_pal_pattern([1, 1, 1, 1], 8, 0, 32)
-    pnes.fill_pal_pattern([2, 2, 2, 2], 8, 0, 64)
-    pnes.fill_pal_pattern([3, 3, 3, 3], 8, 0, 96)
+    pnes.ppu.fill_pal_pattern([0, 0, 0, 0], 8, 0, 0)
+    pnes.ppu.fill_pal_pattern([1, 1, 1, 1], 8, 0, 32)
+    pnes.ppu.fill_pal_pattern([2, 2, 2, 2], 8, 0, 64)
+    pnes.ppu.fill_pal_pattern([3, 3, 3, 3], 8, 0, 96)
 
-    pnes.fill_pal_pattern([0, 1, 3, 2], 1, 64, 160)
+    pnes.ppu.fill_pal_pattern([0, 1, 3, 2], 1, 64, 160)
 
-    func.call([], "bank_spr", [arith.constant(ir.IntegerType.get_signless(8), 1)])
-    pnes.ppu_on()
+    pnes.ppu.bank_spr(1)
+    pnes.ppu.ppu_on()
 
-    metasprite = pnes.get_global_meta_sprite(metasprite1)
+    metasprite = pnes.ppu.get_global_meta_sprite(metasprite1)
+
+    pnes.apu.set_status(pulse0=True)
+    pnes.apu.set_pulse_param(const_volume=False, env_divider=5, env_loop=True)
+    pnes.apu.set_pulse_param(
+        period=500,
+        length_counter=10,
+    )
+    pnes.apu.set_pulse_param(sweep_enable=True, shift=7)
 
     with pnes.InfiniteLoopOp() as loop:
-        func.call([], "ppu_wait_nmi", [])
-        func.call([], "oam_clear", [])
-        y = arith.addi(loop.iteration, arith.constant(ir.IntegerType.get_signless(8), 64))
-        pnes.set_meta_sprite_at(metasprite, 160, y)
+        it_16 = arith.extui(ir.IntegerType.get_signless(16), loop.iteration)
+        period = arith.addi(it_16, arith.constant(it_16.type, 500))
+        # pnes.set_pulse_param(sweep_enable=True, shift=loop.iteration)
+        pnes.ppu.wait_nmi()
+        pnes.ppu.oam_clear()
+        pnes.ppu.set_meta_sprite_at(metasprite, 160, loop.iteration)
 
     return arith.ConstantOp.create_index(0)
