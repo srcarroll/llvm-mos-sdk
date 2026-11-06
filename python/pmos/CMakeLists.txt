@@ -25,6 +25,7 @@ add_custom_command(
 
 add_custom_target(pmos_wheel
     COMMAND ${Python3_EXECUTABLE} -m pip wheel 
+        --no-deps
         --wheel-dir ${CMAKE_CURRENT_BINARY_DIR}/pmos_wheel
         ${CMAKE_CURRENT_BINARY_DIR}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
