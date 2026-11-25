@@ -8,9 +8,6 @@ import numpy as np
 __all__ = ["InfiniteLoopOp", "global_array"]
 
 
-I8Type = ir.IntegerType.get_signless(8)
-
-
 class InfiniteLoopOp:
     """Create an infinite loop in which to insert operations.
 
@@ -29,18 +26,18 @@ class InfiniteLoopOp:
     """
 
     def __init__(self):
-        init = arith.constant(I8Type, 0)
+        init = arith.constant(ir.IndexType.get(), 0)
         true_val = arith.constant(ir.IntegerType.get_signless(1), True)
-        self.while_op = scf.WhileOp([I8Type], [init])
+        self.while_op = scf.WhileOp([ir.IndexType.get()], [init])
         self.while_op.before.blocks.append()
         iteration = self.while_op.before.blocks[0].add_argument(
-            I8Type, ir.Location.unknown()
+            ir.IndexType.get(), ir.Location.unknown()
         )
         with ir.InsertionPoint(self.while_op.before.blocks[0]):
             scf.condition(true_val, [iteration])
         self.while_op.after.blocks.append()
         iteration = self.while_op.after.blocks[0].add_argument(
-            I8Type, ir.Location.unknown()
+            ir.IndexType.get(), ir.Location.unknown()
         )
         self.while_op.iteration = iteration
 
@@ -50,7 +47,7 @@ class InfiniteLoopOp:
         return self.while_op
 
     def __exit__(self, exc_type, exc_value, traceback):
-        one = arith.constant(I8Type, 1)
+        one = arith.constant(ir.IndexType.get(), 1)
         next_val = arith.addi(self.while_op.iteration, one)
         scf.yield_([next_val])
         return self.ip.__exit__(exc_type, exc_value, traceback)

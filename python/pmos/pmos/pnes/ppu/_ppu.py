@@ -4,6 +4,7 @@ from mlir import ir
 from mlir.dialects import anes, arith, scf, llvm
 
 from .._helpers import (
+    _cast_or_get_value_of_int_type,
     _check_or_get_i8_value,
     _check_or_get_i16_value,
 )
@@ -289,6 +290,6 @@ def set_meta_sprite_at(
         `y` (`int | Value`): The `y` coordinate (in units of pixels).
 
     """
-    x = _check_or_get_i8_value(x)
-    y = _check_or_get_i8_value(y)
+    x = _cast_or_get_value_of_int_type(x, 8)
+    y = _cast_or_get_value_of_int_type(y, 8)
     anes.set_meta_sprite_at(metasprite, x, y)

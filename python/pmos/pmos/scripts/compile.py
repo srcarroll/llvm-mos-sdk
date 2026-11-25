@@ -40,6 +40,7 @@ def main(file_path: Path, output_path: Path):
 
             func.FuncOp.from_py_func()(program_module.main)
 
+        module.operation.verify()
         with open(output_path, "w", encoding="utf-8") as file:
             file.write(str(module))
 
