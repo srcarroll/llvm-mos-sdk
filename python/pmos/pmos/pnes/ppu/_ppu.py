@@ -1,7 +1,7 @@
 from typing import Literal, NamedTuple, Optional, Sequence
 
 from mlir import ir
-from mlir.dialects import anes, arith, scf, llvm
+from mlir.dialects import anes, llvm
 
 from .._helpers import (
     _cast_or_get_value_of_int_type,
@@ -21,8 +21,9 @@ __all__ = [
     "ppu_off",
     "ppu_on",
     "set_background_palette",
-    "set_sprite_palette",
     "set_meta_sprite_at",
+    "set_sprite_palette",
+    "set_tile_at",
 ]
 
 
@@ -277,6 +278,23 @@ def set_sprite_palette(
     _set_palette(
         "sprite", universal_bg_color, palette_0, palette_1, palette_2, palette_3
     )
+
+
+def set_tile_at(
+    tile_index: int | ir.Value, x: int | ir.Value, y: int | ir.Value
+) -> None:
+    """Set tile from CHR file at `tile_index` to specified location.
+
+    Args:
+        `tile_index` (`int | Value`): Tile index in CHR file.
+        `x` (`int | Value`): The `x` coordinate (in units of pixels).
+        `y` (`int | Value`): The `y` coordinate (in units of pixels).
+
+    """
+    tile_index = _cast_or_get_value_of_int_type(tile_index, 8)
+    x = _cast_or_get_value_of_int_type(x, 8)
+    y = _cast_or_get_value_of_int_type(y, 8)
+    anes.set_tile_at(tile_index, x, y)
 
 
 def set_meta_sprite_at(

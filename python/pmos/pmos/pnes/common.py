@@ -5,7 +5,7 @@ from mlir.dialects import arith, scf, llvm
 
 import numpy as np
 
-__all__ = ["InfiniteLoopOp", "global_array"]
+__all__ = ["InfiniteLoopOp", "create_index", "global_array"]
 
 
 class InfiniteLoopOp:
@@ -51,6 +51,9 @@ class InfiniteLoopOp:
         next_val = arith.addi(self.while_op.iteration, one)
         scf.yield_([next_val])
         return self.ip.__exit__(exc_type, exc_value, traceback)
+
+def create_index(index: int) -> ir.Value:
+    return arith.ConstantOp.create_index(index)
 
 
 def global_array(
